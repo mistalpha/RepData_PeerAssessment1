@@ -1,135 +1,109 @@
-# Reproducible Research: Peer Assessment 1
+ Reproducible Research
+=======================
 
+# Loading and preprocessing the data
+```{r}
+data <- read.csv("./RepData_PeerAssessment1/activity/activity.csv", header = TRUE, sep = ",")
+index <- complete.cases(data)
+data1 <- data[index,]
+```
 
+# What is mean total number of steps taken per day?
 
-## Loading and preprocessing the data
-##### 1. Load the data (i.e. read.csv())
-
-```r
-if(!file.exists('activity.csv')){
-    unzip('activity.zip')
+```{r}
+data2 <- data1[-which(data1$steps==0),]
+date <- unique(data$date)
+stepsum <- as.numeric()
+Mean <- as.numeric()
+Median <- as.numeric()
+for (i in 1:length(date))
+{
+    stepsum[i] <- sum(data1$steps[which(data1$date == date[i])])
+    Mean[i] <- mean(data1$steps[which(data1$date == date[i])])
 }
-activityData <- read.csv('activity.csv')
-```
-##### 2. Process/transform the data (if necessary) into a format suitable for your analysis
 
-```r
-#activityData$interval <- strptime(gsub("([0-9]{1,2})([0-9]{2})", "\\1:\\2", activityData$interval), format='%H:%M')
-```
 
------
+month <- as.POSIXlt(date)$mon + 1
+day <- as.POSIXlt(date)$mday
+stepsum <- data.frame(stepsum,date,month,day)
 
-## What is mean total number of steps taken per day?
 
-```r
-stepsByDay <- tapply(activityData$steps, activityData$date, sum, na.rm=TRUE)
+library(ggplot2)
+library(plyr)
+mm <- ddply(stepsum, "date",summarise, stepsum = sum(stepsum))
+ggplot(data=mm,aes(x = factor(day),fill = factor(month), y = stepsum)) + geom_bar(stat = "identity",alpha=0.5)
 ```
 
-##### 1. Make a histogram of the total number of steps taken each day
+![result](https://raw.githubusercontent.com/yelangya3826850/RepData_PeerAssessment1/master/figure/1.png)
+# Loading and preprocessing the data
+```{r}
+for (i in 1:length(date))
+{
+    Median[i] <- median(data2$steps[which(data2$date == date[i])])
+}
+result <- data.frame(mean = Mean, median = Median, Date = date)
+with(data2, plot(interval, steps/480, col = date))
 
-```r
-qplot(stepsByDay, xlab='Total steps per day', ylab='Frequency using binwith 500', binwidth=500)
+for (i in 1:61)
+{
+    data4 <- data2[which(data2$date==date[i]),]
+    with(data4, lines(interval,steps/480 , col = i))
+}
 ```
+![result](https://raw.githubusercontent.com/yelangya3826850/RepData_PeerAssessment1/master/figure/2.png)
 
-![plot of chunk unnamed-chunk-5](figure/unnamed-chunk-5.png) 
-
-##### 2. Calculate and report the mean and median total number of steps taken per day
-
-```r
-stepsByDayMean <- mean(stepsByDay)
-stepsByDayMedian <- median(stepsByDay)
+```{r}
+data2[which(data2$step == max(data2$step)),]
 ```
-* Mean: 9354.2295
-* Median:  10395
+* result
+      steps       date interval
+16492   806 2012-11-27      615
 
------
+# Imputing missing values
+```{r}
+number <- dim(data)[1] - sum(complete.cases(data))
+Mean[which(Mean == "NaN")] <- 0
+Mean[which(Mean == 0)] <- (Mean[which(Mean == 0)] + Mean[(which(Mean == 0) + 31)%%62])/2
 
-## What is the average daily activity pattern?
+for (i in c(1,8,32,35,40,41,45,61))
+{
+    data$steps[which(data$date == date[i])] <- Mean[i]
+}
 
-```r
-averageStepsPerTimeBlock <- aggregate(x=list(meanSteps=activityData$steps), by=list(interval=activityData$interval), FUN=mean, na.rm=TRUE)
+stepsum2 <- as.numeric()
+
+for (i in 1:length(date))
+{
+  stepsum2[i] <- sum(data$steps[which(data$date == date[i])])
+}
+
+month <- as.POSIXlt(date)$mon + 1
+day <- as.POSIXlt(date)$mday
+stepsum2 <- data.frame(stepsum2,date,month,day)
+mm <- ddply(stepsum2, "date", summarise, mmpg = sum(stepsum2))
+ggplot(data=mm, aes(x = factor(day),fill = factor(month), y = mmpg)) + geom_bar(stat = "identity",alpha=0.5)
 ```
+![result](https://raw.githubusercontent.com/yelangya3826850/RepData_PeerAssessment1/master/figure/3.png)
+```{r}
+workday <- as.character()
+day <- weekdays(as.Date(data$date))
+workday[which(day == "Sunday" | day == "Saturday")]  <- "weekend"
+workday[which(day == "Monday" | day == "Tuesday" | day == "Wednesday"| day == "Thursday" | day == "Friday")]  <- "weekday"
+Data <- data.frame(data,workday)
 
-##### 1. Make a time series plot
 
-```r
-ggplot(data=averageStepsPerTimeBlock, aes(x=interval, y=meanSteps)) +
-    geom_line() +
-    xlab("5-minute interval") +
-    ylab("average number of steps taken") 
+mmm <- ddply(Data, c("interval","workday"),summarise, steps = mean(steps))
+nnn <- mmm[which(mmm$workday == "weekday"),]
+nn <- mmm[which(mmm$workday == "weekend"),]
+Data2 <- t(data.frame(t(nnn),t(nn)))
+Data2 <- as.data.frame(Data2)
+Data2$steps <- as.numeric(as.character(Data2$steps))
+Data2$interval <- as.numeric(as.character(Data2$interval))
+row.names(Data2) <- c()
+library(lattice)
+xyplot(Data2$steps ~ Data2$interval |Data2$workday, layout = c(1,1), type = "l")
+xyplot(Data2$steps ~ Data2$interval |Data2$workday, layout = c(1,2), type = "l")
 ```
+![result](https://raw.githubusercontent.com/yelangya3826850/RepData_PeerAssessment1/master/figure/4.png)
 
-![plot of chunk unnamed-chunk-8](figure/unnamed-chunk-8.png) 
-
-##### 2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
-
-```r
-mostSteps <- which.max(averageStepsPerTimeBlock$meanSteps)
-timeMostSteps <-  gsub("([0-9]{1,2})([0-9]{2})", "\\1:\\2", averageStepsPerTimeBlock[mostSteps,'interval'])
-```
-
-* Most Steps at: 8:35
-
-----
-
-## Imputing missing values
-##### 1. Calculate and report the total number of missing values in the dataset 
-
-```r
-numMissingValues <- length(which(is.na(activityData$steps)))
-```
-
-* Number of missing values: 2304
-
-##### 2. Devise a strategy for filling in all of the missing values in the dataset.
-##### 3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
-
-```r
-activityDataImputed <- activityData
-activityDataImputed$steps <- impute(activityData$steps, fun=mean)
-```
-
-
-##### 4. Make a histogram of the total number of steps taken each day 
-
-```r
-stepsByDayImputed <- tapply(activityDataImputed$steps, activityDataImputed$date, sum)
-qplot(stepsByDayImputed, xlab='Total steps per day (Imputed)', ylab='Frequency using binwith 500', binwidth=500)
-```
-
-![plot of chunk unnamed-chunk-12](figure/unnamed-chunk-12.png) 
-
-##### ... and Calculate and report the mean and median total number of steps taken per day. 
-
-```r
-stepsByDayMeanImputed <- mean(stepsByDayImputed)
-stepsByDayMedianImputed <- median(stepsByDayImputed)
-```
-* Mean (Imputed): 1.0766 &times; 10<sup>4</sup>
-* Median (Imputed):  1.0766 &times; 10<sup>4</sup>
-
-
-----
-
-## Are there differences in activity patterns between weekdays and weekends?
-##### 1. Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
-
-
-```r
-activityDataImputed$dateType <-  ifelse(as.POSIXlt(activityDataImputed$date)$wday %in% c(0,6), 'weekend', 'weekday')
-```
-
-##### 2. Make a panel plot containing a time series plot
-
-
-```r
-averagedActivityDataImputed <- aggregate(steps ~ interval + dateType, data=activityDataImputed, mean)
-ggplot(averagedActivityDataImputed, aes(interval, steps)) + 
-    geom_line() + 
-    facet_grid(dateType ~ .) +
-    xlab("5-minute interval") + 
-    ylab("avarage number of steps")
-```
-
-![plot of chunk unnamed-chunk-15](figure/unnamed-chunk-15.png) 
 
